@@ -129,8 +129,8 @@ function StatCard({ label, value, helper, icon: Icon, tone = "orange", trend }: 
   );
 }
 
-function LogoMark() {
-  return <div className="flex items-center gap-3"><div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><Printer size={20} strokeWidth={2.5} /><span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-sidebar bg-accent" /></div><div><p className="font-mono text-[15px] font-bold tracking-tight text-sidebar-foreground">POTOCOPY</p><p className="text-[10px] font-semibold uppercase tracking-[.22em] text-sidebar-foreground/55">QTA / counter</p></div></div>;
+function LogoMark({ onDark = false }: { onDark?: boolean }) {
+  return <div className="flex items-center gap-3"><div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><Printer size={20} strokeWidth={2.5} /><span className={cn("absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 bg-accent", onDark ? "border-sidebar" : "border-card")} /></div><div><p className={cn("font-mono text-[15px] font-bold tracking-tight", onDark ? "text-sidebar-foreground" : "text-foreground")}>POTOCOPY</p><p className={cn("text-[10px] font-semibold uppercase tracking-[.22em]", onDark ? "text-sidebar-foreground/55" : "text-muted-foreground")}>QTA / counter</p></div></div>;
 }
 
 const navGroups = [
@@ -142,8 +142,13 @@ const navGroups = [
 function Sidebar({ mobileOpen, close }: { mobileOpen: boolean; close: () => void }) {
   const [location] = useLocation();
   return (
-    <aside className={cn("fixed inset-y-0 left-0 z-40 flex w-[244px] flex-col bg-sidebar px-4 py-5 text-sidebar-foreground transition-transform duration-300 md:static md:translate-x-0", mobileOpen ? "translate-x-0" : "-translate-x-full")}>
-      <div className="px-2"><LogoMark /></div>
+    <aside className={cn("fixed inset-y-0 left-0 z-40 flex w-[244px] flex-col border-r border-sidebar-border bg-sidebar px-4 py-5 text-sidebar-foreground shadow-2xl transition-transform duration-300 md:static md:translate-x-0 md:border-r-0 md:shadow-none", mobileOpen ? "translate-x-0" : "-translate-x-full")}>
+      <div className="flex items-center justify-between px-2">
+        <LogoMark onDark />
+        <button type="button" aria-label="Close menu" onClick={close} className="flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/65 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground md:hidden">
+          <X size={18} />
+        </button>
+      </div>
       <div className="mt-9 flex-1 space-y-6 overflow-y-auto">
         {navGroups.map(group => <div key={group.label}><p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[.18em] text-sidebar-foreground/40">{group.label}</p><nav className="space-y-1">{group.items.map(item => { const Icon = item.icon; const active = item.href === "/" ? location === "/" : location.startsWith(item.href); return <Link key={item.href} href={item.href} onClick={close} data-testid={`link-${item.label.toLowerCase()}`} className={cn("group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", active ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm" : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground")}><Icon size={17} /><span>{item.label}</span>{active && <ChevronRight className="ml-auto opacity-60" size={15} />}</Link>; })}</nav></div>)}
         <div><p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[.18em] text-sidebar-foreground/40">Workspace</p><Link href="/settings" onClick={close} data-testid="link-settings" className={cn("flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", location.startsWith("/settings") ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground")}><Settings size={17} /><span>Settings</span></Link></div>
@@ -160,7 +165,7 @@ function Topbar({ onMenu, title, eyebrow }: { onMenu: () => void; title: string;
 
 function Shell({ children, title, eyebrow = "Potocopy QTA" }: { children: React.ReactNode; title: string; eyebrow?: string }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  return <div className="min-h-[100dvh] bg-background"><div className="flex min-h-[100dvh]"><Sidebar mobileOpen={mobileOpen} close={() => setMobileOpen(false)} /><div className="min-w-0 flex-1"><Topbar onMenu={() => setMobileOpen(v => !v)} title={title} eyebrow={eyebrow} /><main className="mx-auto max-w-[1600px] p-4 sm:p-7">{children}</main></div></div></div>;
+  return <div className="min-h-[100dvh] bg-background"><div className="flex min-h-[100dvh]"><Sidebar mobileOpen={mobileOpen} close={() => setMobileOpen(false)} />{mobileOpen && <button type="button" aria-label="Close menu overlay" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-30 bg-foreground/45 backdrop-blur-[2px] md:hidden" />}<div className="min-w-0 flex-1"><Topbar onMenu={() => setMobileOpen(v => !v)} title={title} eyebrow={eyebrow} /><main className="mx-auto max-w-[1600px] p-4 sm:p-7">{children}</main></div></div></div>;
 }
 
 function PageIntro({ title, subtitle, action }: { title: string; subtitle: string; action?: React.ReactNode }) {
