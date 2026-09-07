@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useClerk, useUser } from "@clerk/react";
 import {
@@ -12,6 +12,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   ClipboardList,
+  Download,
   FileText,
   Filter,
   History,
@@ -29,6 +30,8 @@ import {
   SlidersHorizontal,
   Store,
   Tag,
+  Trash2,
+  Upload,
   Users,
   X,
   Zap,
@@ -38,17 +41,24 @@ import {
   getGetDashboardSummaryQueryKey,
   getGetTransactionQueryKey,
   getListInventoryQueryKey,
+  getListExpensesQueryKey,
   getListProductsQueryKey,
   getListTransactionsQueryKey,
+  exportBackup,
   useCancelTransaction,
+  useCreateExpense,
   useCreateTransaction,
+  useDeleteExpense,
   useGetActivity,
   useGetDashboardSummary,
   useGetTransaction,
+  useImportBackup,
+  useListExpenses,
   useListInventory,
   useListProducts,
   useListTransactions,
 } from "@workspace/api-client-react";
+import type { BackupSnapshot } from "@workspace/api-client-react";
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from "wouter";
 import { ErrorBoundary } from "@/components/error-boundary";
 import NotFound from "@/pages/not-found";
@@ -77,6 +87,9 @@ type TransactionLike = {
 };
 type InventoryLike = {
   id: number; name: string; sku: string; category: string; unit: string; currentStock: number; minimumStock: number; status: string;
+};
+type ExpenseLike = {
+  id: number; amount: number; category: string; description: string; createdAt: string;
 };
 
 const money = (value = 0) =>
@@ -289,12 +302,129 @@ function ReportsPage() {
 
 function ExpensesPage() {
   const summaryQuery = useGetDashboardSummary();
+  const expensesQuery = useListExpenses();
+  const createExpense = useCreateExpense();
+  const deleteExpense = useDeleteExpense();
+  const queryClient = useQueryClient();
   const summary = summaryQuery.data as SummaryLike | undefined;
-  return <Shell title="Expenses"><PageIntro title="Expenses" subtitle="Keep the cash-out side of the shop visible and accountable." action={<button type="button" data-testid="button-add-expense" onClick={() => alert("Expense entry will be available when the expenses service is connected.")} className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground"><Plus size={17} />Record expense</button>} /><div className="grid gap-4 sm:grid-cols-2"><StatCard label="Today’s expenses" value={summary ? money(summary.expensesToday) : "—"} helper="From the daily summary" icon={CircleDollarSign} tone="yellow" /><StatCard label="Net after expenses" value={summary ? money(summary.netCash) : "—"} helper="Revenue less expenses" icon={ArrowUpRight} tone="teal" /></div><div className="mt-6"><EmptyState icon={ClipboardList} title="No expense entries to show" description="Expense records will appear here once the expenses service is enabled. The daily summary above remains live." action={<button type="button" data-testid="button-expenses-info" onClick={() => alert("Ask an owner to enable expense tracking for this shop.")} className="mt-4 rounded-md border border-border px-3 py-2 text-xs font-bold hover:bg-muted">What’s missing?</button>} /></div></Shell>;
+  const expenses = (expensesQuery.data ?? []) as ExpenseLike[];
+  const [formOpen, setFormOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState("Operasional");
+  const [description, setDescription] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const refreshExpenses = () => {
+    queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey({ limit: 7 }) });
+  };
+  const submitExpense = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0 || !description.trim()) {
+      setNotice("Enter a valid amount and description.");
+      return;
+    }
+    createExpense.mutate({ data: { amount: numericAmount, category, description: description.trim() } }, {
+      onSuccess: () => {
+        setAmount("");
+        setDescription("");
+        setFormOpen(false);
+        setNotice("Expense recorded.");
+        refreshExpenses();
+      },
+      onError: (error) => setNotice(error instanceof Error ? error.message : "Expense could not be recorded."),
+    });
+  };
+  const removeExpense = (expense: ExpenseLike) => {
+    if (!window.confirm(`Delete expense "${expense.description}"?`)) return;
+    deleteExpense.mutate({ id: expense.id }, {
+      onSuccess: () => {
+        setNotice("Expense deleted.");
+        refreshExpenses();
+      },
+      onError: (error) => setNotice(error instanceof Error ? error.message : "Expense could not be deleted."),
+    });
+  };
+
+  return <Shell title="Expenses">
+    <PageIntro title="Expenses" subtitle="Keep the cash-out side of the shop visible and accountable." action={<button type="button" data-testid="button-add-expense" onClick={() => setFormOpen(value => !value)} className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground"><Plus size={17} />Record expense</button>} />
+    {notice && <div className="mb-4 flex items-center justify-between rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary"><span>{notice}</span><IconButton label="dismiss expense notice" onClick={() => setNotice("")}><X size={15} /></IconButton></div>}
+    {formOpen && <form onSubmit={submitExpense} className="mb-6 rounded-xl border border-primary/25 bg-card p-5 shadow-[var(--shadow-soft)]">
+      <div className="mb-4"><h3 className="font-semibold">Record an expense</h3><p className="mt-1 text-xs text-muted-foreground">This will immediately update today’s net cash.</p></div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="text-xs font-semibold"><span>Amount (IDR)</span><input data-testid="input-expense-amount" required min="1" step="100" type="number" value={amount} onChange={event => setAmount(event.target.value)} placeholder="25000" className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-primary" /></label>
+        <label className="text-xs font-semibold"><span>Category</span><select data-testid="select-expense-category" value={category} onChange={event => setCategory(event.target.value)} className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-primary"><option>Operasional</option><option>Bahan toko</option><option>Listrik & internet</option><option>Transport</option><option>Lainnya</option></select></label>
+      </div>
+      <label className="mt-4 block text-xs font-semibold"><span>Description</span><input data-testid="input-expense-description" required value={description} onChange={event => setDescription(event.target.value)} placeholder="Beli tinta printer" className="mt-2 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-primary" /></label>
+      <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setFormOpen(false)} className="rounded-lg px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted">Cancel</button><button type="submit" disabled={createExpense.isPending} data-testid="button-save-expense" className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-60">{createExpense.isPending ? "Saving..." : "Save expense"}</button></div>
+    </form>}
+    <div className="grid gap-4 sm:grid-cols-2"><StatCard label="Today’s expenses" value={summary ? money(summary.expensesToday) : "—"} helper="From saved expense records" icon={CircleDollarSign} tone="yellow" /><StatCard label="Net after expenses" value={summary ? money(summary.netCash) : "—"} helper="Revenue less expenses" icon={ArrowUpRight} tone="teal" /></div>
+    <section className="mt-6 rounded-xl border border-border bg-card shadow-[var(--shadow-soft)]">
+      <div className="border-b border-border p-5"><h3 className="font-semibold">Expense history</h3><p className="mt-1 text-xs text-muted-foreground">Saved in the shop database and included in reports.</p></div>
+      {expensesQuery.isLoading ? <div className="space-y-3 p-5"><Skeleton className="h-14" /><Skeleton className="h-14" /></div> : expensesQuery.isError ? <div className="p-5"><ErrorState onRetry={() => expensesQuery.refetch()} label="Expenses could not be loaded." /></div> : expenses.length ? <div className="divide-y divide-border">{expenses.map(expense => <div key={expense.id} data-testid={`row-expense-${expense.id}`} className="flex items-center justify-between gap-4 p-5"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-bold">{expense.description}</p><span className="rounded-full bg-muted px-2 py-1 text-[10px] font-bold text-muted-foreground">{expense.category}</span></div><p className="mt-1 text-xs text-muted-foreground">{dateTime(expense.createdAt)}</p></div><div className="flex items-center gap-3"><p className="font-mono text-sm font-bold text-destructive">−{money(expense.amount)}</p><button type="button" aria-label={`Delete expense ${expense.id}`} data-testid={`button-delete-expense-${expense.id}`} onClick={() => removeExpense(expense)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 size={15} /></button></div></div>)}</div> : <div className="p-5"><EmptyState icon={ClipboardList} title="No expense entries yet" description="Record your first shop expense to keep net cash accurate." /></div>}
+    </section>
+  </Shell>;
 }
 
 function SettingsPage() {
-  return <Shell title="Settings"><PageIntro title="Shop settings" subtitle="A small, clear home for the people and preferences behind QTA." /><div className="grid gap-4 lg:grid-cols-2"><section className="rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground"><Store size={19} /></div><h3 className="mt-5 text-lg font-bold">Shop profile</h3><p className="mt-1 text-sm leading-6 text-muted-foreground">Branch name, address, receipt footer, and operating hours will live here.</p><div className="mt-5 rounded-lg border border-dashed border-border bg-muted/35 p-4 text-xs text-muted-foreground">Settings surface is ready. Connect the shop profile service to begin editing.</div></section><section className="rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/35 text-accent-foreground"><Users size={19} /></div><h3 className="mt-5 text-lg font-bold">Team access</h3><p className="mt-1 text-sm leading-6 text-muted-foreground">Cashier roles, owner permissions, and activity visibility will be managed here.</p><div className="mt-5 rounded-lg border border-dashed border-border bg-muted/35 p-4 text-xs text-muted-foreground">Team management is not connected yet. Clerk owns sign-in and session security.</div></section></div></Shell>;
+  const queryClient = useQueryClient();
+  const importBackupMutation = useImportBackup();
+  const backupInputRef = useRef<HTMLInputElement>(null);
+  const [backupNotice, setBackupNotice] = useState("");
+  const [backupBusy, setBackupBusy] = useState<"export" | "import" | null>(null);
+  const downloadBackup = async () => {
+    setBackupBusy("export");
+    setBackupNotice("");
+    try {
+      const snapshot = await exportBackup();
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `potocopy-qta-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setBackupNotice("Backup JSON berhasil diunduh ke perangkat.");
+    } catch (error) {
+      setBackupNotice(error instanceof Error ? error.message : "Backup tidak dapat dibuat.");
+    } finally {
+      setBackupBusy(null);
+    }
+  };
+  const importBackupFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+    try {
+      const snapshot = JSON.parse(await file.text()) as BackupSnapshot;
+      if (!window.confirm("Restore akan mengganti data toko saat ini dengan isi file backup. Lanjutkan?")) return;
+      setBackupBusy("import");
+      setBackupNotice("");
+      importBackupMutation.mutate({ data: snapshot }, {
+        onSuccess: (result) => {
+          setBackupBusy(null);
+          setBackupNotice(`Restore berhasil: ${result.counts.transactions ?? 0} transaksi dan ${result.counts.expenses ?? 0} pengeluaran dipulihkan.`);
+          queryClient.invalidateQueries();
+        },
+        onError: (error) => {
+          setBackupBusy(null);
+          setBackupNotice(error instanceof Error ? error.message : "File backup tidak dapat dipulihkan.");
+        },
+      });
+    } catch {
+      setBackupNotice("File bukan JSON backup Potocopy QTA yang valid.");
+    }
+  };
+  return <Shell title="Settings"><PageIntro title="Shop settings" subtitle="A small, clear home for the people and preferences behind QTA." />
+    {backupNotice && <div className="mb-4 rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary">{backupNotice}</div>}
+    <section className="rounded-xl border border-primary/20 bg-card p-6 shadow-[var(--shadow-soft)]"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground"><Download size={19} /></div><h3 className="mt-5 text-lg font-bold">Backup & restore</h3><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Simpan salinan seluruh catalog, inventory, transaksi, pembayaran, pengeluaran, dan activity log ke penyimpanan HP sebagai file JSON.</p><div className="mt-5 rounded-lg border border-accent/40 bg-accent/10 p-4 text-xs leading-5 text-accent-foreground"><strong>Penting:</strong> Restore akan mengganti data toko yang sedang tersimpan. Download backup terbaru sebelum melakukan restore.</div><div className="mt-5 flex flex-col gap-3 sm:flex-row"><button type="button" data-testid="button-download-backup" disabled={backupBusy !== null} onClick={downloadBackup} className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-60"><Download size={16} />{backupBusy === "export" ? "Preparing..." : "Download backup JSON"}</button><button type="button" data-testid="button-restore-backup" disabled={backupBusy !== null} onClick={() => backupInputRef.current?.click()} className="flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-bold hover:bg-muted disabled:opacity-60"><Upload size={16} />{backupBusy === "import" ? "Restoring..." : "Restore from JSON"}</button><input ref={backupInputRef} data-testid="input-restore-backup" type="file" accept="application/json,.json" onChange={importBackupFile} className="hidden" /></div></section>
+    <div className="mt-6 grid gap-4 lg:grid-cols-2"><section className="rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground"><Store size={19} /></div><h3 className="mt-5 text-lg font-bold">Shop profile</h3><p className="mt-1 text-sm leading-6 text-muted-foreground">Branch name, address, receipt footer, and operating hours will live here.</p><div className="mt-5 rounded-lg border border-dashed border-border bg-muted/35 p-4 text-xs text-muted-foreground">Settings surface is ready. Connect the shop profile service to begin editing.</div></section><section className="rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/35 text-accent-foreground"><Users size={19} /></div><h3 className="mt-5 text-lg font-bold">Team access</h3><p className="mt-1 text-sm leading-6 text-muted-foreground">Cashier roles, owner permissions, and activity visibility will be managed here.</p><div className="mt-5 rounded-lg border border-dashed border-border bg-muted/35 p-4 text-xs text-muted-foreground">Team management is not connected yet. Clerk owns sign-in and session security.</div></section></div>
+  </Shell>;
 }
 
 function PublicAccess() {

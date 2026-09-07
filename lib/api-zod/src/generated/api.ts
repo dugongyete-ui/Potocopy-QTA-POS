@@ -252,3 +252,99 @@ export const ListInventoryResponseItem = zod.object({
 export const ListInventoryResponse = zod.array(ListInventoryResponseItem)
 
 
+/**
+ * @summary List shop expenses
+ */
+export const listExpensesResponseAmountExclusiveMin = 0;
+
+
+
+export const ListExpensesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "amount": zod.number().gt(listExpensesResponseAmountExclusiveMin),
+  "category": zod.string(),
+  "description": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListExpensesResponse = zod.array(ListExpensesResponseItem)
+
+
+/**
+ * @summary Record a shop expense
+ */
+export const createExpenseBodyAmountExclusiveMin = 0;
+
+
+
+
+
+export const CreateExpenseBody = zod.object({
+  "amount": zod.number().gt(createExpenseBodyAmountExclusiveMin),
+  "category": zod.string().min(1),
+  "description": zod.string().min(1)
+})
+
+export const createExpenseResponseAmountExclusiveMin = 0;
+
+
+
+export const CreateExpenseResponse = zod.object({
+  "id": zod.number().int(),
+  "amount": zod.number().gt(createExpenseResponseAmountExclusiveMin),
+  "category": zod.string(),
+  "description": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a shop expense
+ */
+export const DeleteExpenseParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteExpenseResponse = zod.void()
+
+
+/**
+ * @summary Export all shop data as a portable backup
+ */
+export const ExportBackupResponse = zod.object({
+  "format": zod.enum(['potocopy-qta-backup']),
+  "version": zod.enum(['1']),
+  "exportedAt": zod.coerce.date(),
+  "categories": zod.array(zod.record(zod.string(), zod.unknown())),
+  "products": zod.array(zod.record(zod.string(), zod.unknown())),
+  "inventoryItems": zod.array(zod.record(zod.string(), zod.unknown())),
+  "transactions": zod.array(zod.record(zod.string(), zod.unknown())),
+  "transactionItems": zod.array(zod.record(zod.string(), zod.unknown())),
+  "payments": zod.array(zod.record(zod.string(), zod.unknown())),
+  "expenses": zod.array(zod.record(zod.string(), zod.unknown())),
+  "auditLogs": zod.array(zod.record(zod.string(), zod.unknown()))
+})
+
+
+/**
+ * @summary Restore shop data from a portable backup
+ */
+export const ImportBackupBody = zod.object({
+  "format": zod.enum(['potocopy-qta-backup']),
+  "version": zod.enum(['1']),
+  "exportedAt": zod.coerce.date(),
+  "categories": zod.array(zod.record(zod.string(), zod.unknown())),
+  "products": zod.array(zod.record(zod.string(), zod.unknown())),
+  "inventoryItems": zod.array(zod.record(zod.string(), zod.unknown())),
+  "transactions": zod.array(zod.record(zod.string(), zod.unknown())),
+  "transactionItems": zod.array(zod.record(zod.string(), zod.unknown())),
+  "payments": zod.array(zod.record(zod.string(), zod.unknown())),
+  "expenses": zod.array(zod.record(zod.string(), zod.unknown())),
+  "auditLogs": zod.array(zod.record(zod.string(), zod.unknown()))
+})
+
+export const ImportBackupResponse = zod.object({
+  "restoredAt": zod.coerce.date(),
+  "counts": zod.record(zod.string(), zod.number().int())
+})
+
+

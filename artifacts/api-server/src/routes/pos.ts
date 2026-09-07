@@ -15,9 +15,16 @@ import {
 import {
   CancelTransactionBody,
   CancelTransactionParams,
+  CreateExpenseBody,
+  CreateExpenseResponse,
   CreateTransactionBody,
+  DeleteExpenseParams,
+  ExportBackupResponse,
   GetActivityQueryParams,
   GetTransactionParams,
+  ImportBackupBody,
+  ImportBackupResponse,
+  ListExpensesResponse,
   ListProductsQueryParams,
   ListTransactionsQueryParams,
 } from "@workspace/api-zod";
@@ -27,6 +34,50 @@ let seeded = false;
 
 const money = (value: unknown) => Number(value ?? 0);
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
+
+type BackupRow = Record<string, unknown>;
+type BackupPayload = {
+  format: "potocopy-qta-backup";
+  version: "1";
+  exportedAt: Date;
+  categories: BackupRow[];
+  products: BackupRow[];
+  inventoryItems: BackupRow[];
+  transactions: BackupRow[];
+  transactionItems: BackupRow[];
+  payments: BackupRow[];
+  expenses: BackupRow[];
+  auditLogs: BackupRow[];
+};
+
+const requiredBackupString = (row: BackupRow, key: string) => {
+  const value = row[key];
+  if (typeof value !== "string") throw new Error(`Backup field ${key} must be text.`);
+  return value;
+};
+const requiredBackupNumber = (row: BackupRow, key: string, integer = false) => {
+  const value = row[key];
+  if (typeof value !== "number" || !Number.isFinite(value) || (integer && !Number.isInteger(value))) {
+    throw new Error(`Backup field ${key} must be a valid number.`);
+  }
+  return value;
+};
+const optionalBackupString = (row: BackupRow, key: string) => {
+  const value = row[key];
+  if (value == null) return null;
+  return requiredBackupString(row, key);
+};
+const requiredBackupDate = (row: BackupRow, key: string) => {
+  const value = requiredBackupString(row, key);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error(`Backup field ${key} must be a valid date.`);
+  return date;
+};
+const optionalBackupDate = (row: BackupRow, key: string) => {
+  const value = row[key];
+  if (value == null) return null;
+  return requiredBackupDate(row, key);
+};
 const purchasedItems = [
   "HVS A3 75 PPLITE",
   "Laminating F4 Amanda",
@@ -380,6 +431,199 @@ async function transactionDto(id: number) {
   };
 }
 
+function expenseDto(expense: typeof expenses.$inferSelect) {
+  return {
+    id: expense.id,
+    amount: money(expense.amount),
+    category: expense.category,
+    description: expense.description,
+    createdAt: expense.createdAt.toISOString(),
+  };
+}
+
+function backupSnapshot(
+  rows: {
+    categoryRows: Array<typeof categories.$inferSelect>;
+    productRows: Array<typeof products.$inferSelect>;
+    inventoryRows: Array<typeof inventoryItems.$inferSelect>;
+    transactionRows: Array<typeof transactions.$inferSelect>;
+    transactionItemRows: Array<typeof transactionItems.$inferSelect>;
+    paymentRows: Array<typeof payments.$inferSelect>;
+    expenseRows: Array<typeof expenses.$inferSelect>;
+    auditRows: Array<typeof auditLogs.$inferSelect>;
+  },
+): Omit<BackupPayload, "exportedAt"> & { exportedAt: string } {
+  return {
+    format: "potocopy-qta-backup",
+    version: "1",
+    exportedAt: new Date().toISOString(),
+    categories: rows.categoryRows.map((row) => ({ id: row.id, name: row.name })),
+    products: rows.productRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      sku: row.sku,
+      categoryId: row.categoryId,
+      kind: row.kind,
+      price: money(row.price),
+      unit: row.unit,
+      stockTracking: row.stockTracking,
+      active: row.active,
+    })),
+    inventoryItems: rows.inventoryRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      sku: row.sku,
+      category: row.category,
+      unit: row.unit,
+      currentStock: money(row.currentStock),
+      minimumStock: money(row.minimumStock),
+      status: row.status,
+    })),
+    transactions: rows.transactionRows.map((row) => ({
+      id: row.id,
+      number: row.number,
+      createdAt: row.createdAt.toISOString(),
+      cashier: row.cashier,
+      total: money(row.total),
+      paid: money(row.paid),
+      change: money(row.change),
+      paymentMethod: row.paymentMethod,
+      status: row.status,
+      cancellationReason: row.cancellationReason,
+      cancelledAt: row.cancelledAt?.toISOString() ?? null,
+      cancelledBy: row.cancelledBy,
+    })),
+    transactionItems: rows.transactionItemRows.map((row) => ({
+      id: row.id,
+      transactionId: row.transactionId,
+      productId: row.productId,
+      name: row.name,
+      quantity: money(row.quantity),
+      unitPrice: money(row.unitPrice),
+      subtotal: money(row.subtotal),
+      unit: row.unit,
+    })),
+    payments: rows.paymentRows.map((row) => ({
+      id: row.id,
+      transactionId: row.transactionId,
+      method: row.method,
+      amount: money(row.amount),
+    })),
+    expenses: rows.expenseRows.map((row) => ({
+      id: row.id,
+      amount: money(row.amount),
+      category: row.category,
+      description: row.description,
+      createdAt: row.createdAt.toISOString(),
+    })),
+    auditLogs: rows.auditRows.map((row) => ({
+      id: row.id,
+      createdAt: row.createdAt.toISOString(),
+      actor: row.actor,
+      action: row.action,
+      object: row.object,
+      detail: row.detail,
+    })),
+  };
+}
+
+async function restoreBackup(snapshot: BackupPayload) {
+  const categoryRows = snapshot.categories.map((row) => ({
+    id: requiredBackupNumber(row, "id", true),
+    name: requiredBackupString(row, "name"),
+  }));
+  const productRows = snapshot.products.map((row) => ({
+    id: requiredBackupNumber(row, "id", true),
+    name: requiredBackupString(row, "name"),
+    sku: requiredBackupString(row, "sku"),
+    categoryId: row.categoryId == null ? null : requiredBackupNumber(row, "categoryId", true),
+    kind: requiredBackupString(row, "kind"),
+    price: requiredBackupNumber(row, "price").toFixed(2),
+    unit: requiredBackupString(row, "unit"),
+    stockTracking: row.stockTracking === true,
+    active: row.active !== false,
+  }));
+  const inventoryRows = snapshot.inventoryItems.map((row) => ({
+    id: requiredBackupNumber(row, "id", true),
+    name: requiredBackupString(row, "name"),
+    sku: requiredBackupString(row, "sku"),
+    category: requiredBackupString(row, "category"),
+    unit: requiredBackupString(row, "unit"),
+    currentStock: requiredBackupNumber(row, "currentStock").toFixed(2),
+    minimumStock: requiredBackupNumber(row, "minimumStock").toFixed(2),
+    status: requiredBackupString(row, "status"),
+  }));
+  const transactionRows = snapshot.transactions.map((row) => ({
+    id: requiredBackupNumber(row, "id", true),
+    number: requiredBackupString(row, "number"),
+    createdAt: requiredBackupDate(row, "createdAt"),
+    cashier: requiredBackupString(row, "cashier"),
+    total: requiredBackupNumber(row, "total").toFixed(2),
+    paid: requiredBackupNumber(row, "paid").toFixed(2),
+    change: requiredBackupNumber(row, "change").toFixed(2),
+    paymentMethod: requiredBackupString(row, "paymentMethod"),
+    status: requiredBackupString(row, "status"),
+    cancellationReason: optionalBackupString(row, "cancellationReason"),
+    cancelledAt: optionalBackupDate(row, "cancelledAt"),
+    cancelledBy: optionalBackupString(row, "cancelledBy"),
+  }));
+  const transactionItemRows = snapshot.transactionItems.map((row) => ({
+    id: requiredBackupNumber(row, "id", true),
+    transactionId: requiredBackupNumber(row, "transactionId", true),
+    productId: requiredBackupNumber(row, "productId", true),
+    name: requiredBackupString(row, "name"),
+    quantity: requiredBackupNumber(row, "quantity").toFixed(2),
+    unitPrice: requiredBackupNumber(row, "unitPrice").toFixed(2),
+    subtotal: requiredBackupNumber(row, "subtotal").toFixed(2),
+    unit: requiredBackupString(row, "unit"),
+  }));
+  const paymentRows = snapshot.payments.map((row) => ({
+    id: requiredBackupNumber(row, "id", true),
+    transactionId: requiredBackupNumber(row, "transactionId", true),
+    method: requiredBackupString(row, "method"),
+    amount: requiredBackupNumber(row, "amount").toFixed(2),
+  }));
+  const expenseRows = snapshot.expenses.map((row) => ({
+    id: requiredBackupNumber(row, "id", true),
+    amount: requiredBackupNumber(row, "amount").toFixed(2),
+    category: requiredBackupString(row, "category"),
+    description: requiredBackupString(row, "description"),
+    createdAt: requiredBackupDate(row, "createdAt"),
+  }));
+  const auditRows = snapshot.auditLogs.map((row) => ({
+    id: requiredBackupNumber(row, "id", true),
+    createdAt: requiredBackupDate(row, "createdAt"),
+    actor: requiredBackupString(row, "actor"),
+    action: requiredBackupString(row, "action"),
+    object: requiredBackupString(row, "object"),
+    detail: requiredBackupString(row, "detail"),
+  }));
+
+  await db.transaction(async (tx) => {
+    await tx.delete(payments);
+    await tx.delete(transactionItems);
+    await tx.delete(transactions);
+    await tx.delete(expenses);
+    await tx.delete(inventoryItems);
+    await tx.delete(products);
+    await tx.delete(categories);
+    await tx.delete(auditLogs);
+
+    if (categoryRows.length) await tx.insert(categories).values(categoryRows);
+    if (productRows.length) await tx.insert(products).values(productRows);
+    if (inventoryRows.length) await tx.insert(inventoryItems).values(inventoryRows);
+    if (transactionRows.length) await tx.insert(transactions).values(transactionRows);
+    if (transactionItemRows.length) await tx.insert(transactionItems).values(transactionItemRows);
+    if (paymentRows.length) await tx.insert(payments).values(paymentRows);
+    if (expenseRows.length) await tx.insert(expenses).values(expenseRows);
+    if (auditRows.length) await tx.insert(auditLogs).values(auditRows);
+
+    for (const table of ["categories", "products", "inventory_items", "transactions", "transaction_items", "payments", "expenses", "audit_logs"]) {
+      await tx.execute(sql`SELECT setval(pg_get_serial_sequence(${table}, 'id'), COALESCE((SELECT MAX(id) FROM ${sql.identifier(table)}), 1), (SELECT MAX(id) IS NOT NULL FROM ${sql.identifier(table)}))`);
+    }
+  });
+}
+
 router.get("/dashboard/summary", async (_req, res) => {
   await ensureSeeded();
   const allTransactions = await db.select().from(transactions).orderBy(desc(transactions.createdAt));
@@ -426,6 +670,111 @@ router.get("/activity", async (req, res) => {
   const query = GetActivityQueryParams.parse(req.query);
   const rows = await db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(query.limit ?? 8);
   return res.json(rows.map((row) => ({ id: row.id, createdAt: row.createdAt.toISOString(), actor: row.actor, action: row.action, object: row.object, detail: row.detail })));
+});
+
+router.get("/expenses", async (_req, res) => {
+  await ensureSeeded();
+  const rows = await db.select().from(expenses).orderBy(desc(expenses.createdAt));
+  return res.json(ListExpensesResponse.parse(rows.map(expenseDto)));
+});
+
+router.post("/expenses", requireAuth, async (req, res) => {
+  try {
+    await ensureSeeded();
+    const body = CreateExpenseBody.parse(req.body);
+    const category = body.category.trim();
+    const description = body.description.trim();
+    if (!category || !description) {
+      return res.status(400).json({ error: "Kategori dan deskripsi pengeluaran wajib diisi." });
+    }
+    const expense = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(expenses).values({
+        amount: body.amount.toFixed(2),
+        category,
+        description,
+      }).returning();
+      await tx.insert(auditLogs).values({
+        actor: "Owner Aktif",
+        action: "MENCATAT PENGELUARAN",
+        object: created.category,
+        detail: `${created.description} • Rp${money(created.amount).toLocaleString("id-ID")}`,
+      });
+      return created;
+    });
+    return res.status(201).json(CreateExpenseResponse.parse(expenseDto(expense)));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Data pengeluaran tidak valid.";
+    return res.status(400).json({ error: message });
+  }
+});
+
+router.delete("/expenses/:id", requireAuth, async (req, res) => {
+  try {
+    const params = DeleteExpenseParams.parse({ id: Number(req.params.id) });
+    const expense = await db.transaction(async (tx) => {
+      const [deleted] = await tx.delete(expenses).where(eq(expenses.id, params.id)).returning();
+      if (!deleted) return null;
+      await tx.insert(auditLogs).values({
+        actor: "Owner Aktif",
+        action: "MENGHAPUS PENGELUARAN",
+        object: deleted.category,
+        detail: `${deleted.description} • Rp${money(deleted.amount).toLocaleString("id-ID")}`,
+      });
+      return deleted;
+    });
+    if (!expense) {
+      return res.status(404).json({ error: "Pengeluaran tidak ditemukan." });
+    }
+    return res.sendStatus(204);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "ID pengeluaran tidak valid.";
+    return res.status(400).json({ error: message });
+  }
+});
+
+router.get("/backup/export", requireAuth, async (_req, res) => {
+  await ensureSeeded();
+  const [categoryRows, productRows, inventoryRows, transactionRows, transactionItemRows, paymentRows, expenseRows, auditRows] = await Promise.all([
+    db.select().from(categories),
+    db.select().from(products),
+    db.select().from(inventoryItems),
+    db.select().from(transactions),
+    db.select().from(transactionItems),
+    db.select().from(payments),
+    db.select().from(expenses),
+    db.select().from(auditLogs),
+  ]);
+  return res.json(ExportBackupResponse.parse(backupSnapshot({
+    categoryRows,
+    productRows,
+    inventoryRows,
+    transactionRows,
+    transactionItemRows,
+    paymentRows,
+    expenseRows,
+    auditRows,
+  })));
+});
+
+router.post("/backup/import", requireAuth, async (req, res) => {
+  try {
+    const snapshot = ImportBackupBody.parse(req.body) as unknown as BackupPayload;
+    await restoreBackup(snapshot);
+    seeded = true;
+    return res.json(ImportBackupResponse.parse({
+      restoredAt: new Date().toISOString(),
+      counts: {
+        categories: snapshot.categories.length,
+        products: snapshot.products.length,
+        inventoryItems: snapshot.inventoryItems.length,
+        transactions: snapshot.transactions.length,
+        expenses: snapshot.expenses.length,
+      },
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "File backup tidak valid.";
+    return res.status(400).json({ error: message });
+  }
 });
 
 router.get("/products", async (req, res) => {

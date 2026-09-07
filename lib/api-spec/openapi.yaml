@@ -18,6 +18,10 @@ tags:
     description: Sales transactions and cancellation
   - name: inventory
     description: Inventory and stock movements
+  - name: expenses
+    description: Shop expense records
+  - name: backup
+    description: Portable shop data backup and restore
 paths:
   /healthz:
     get:
@@ -211,6 +215,99 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/InventoryItem"
+  /expenses:
+    get:
+      operationId: listExpenses
+      tags: [expenses]
+      summary: List shop expenses
+      responses:
+        "200":
+          description: Expenses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Expense"
+    post:
+      operationId: createExpense
+      tags: [expenses]
+      summary: Record a shop expense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseInput"
+      responses:
+        "201":
+          description: Created expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "400":
+          description: Invalid expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /expenses/{id}:
+    delete:
+      operationId: deleteExpense
+      tags: [expenses]
+      summary: Delete a shop expense
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Expense deleted
+        "404":
+          description: Expense not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /backup/export:
+    get:
+      operationId: exportBackup
+      tags: [backup]
+      summary: Export all shop data as a portable backup
+      responses:
+        "200":
+          description: Portable backup snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupSnapshot"
+  /backup/import:
+    post:
+      operationId: importBackup
+      tags: [backup]
+      summary: Restore shop data from a portable backup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupSnapshot"
+      responses:
+        "200":
+          description: Backup restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupImportResult"
+        "400":
+          description: Invalid backup
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -311,6 +408,65 @@ components:
           type: string
           enum: [HEALTHY, LOW, OUT]
       required: [id, name, sku, category, unit, currentStock, minimumStock, status]
+    Expense:
+      type: object
+      properties:
+        id: { type: integer }
+        amount: { type: number, exclusiveMinimum: 0 }
+        category: { type: string }
+        description: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, amount, category, description, createdAt]
+    ExpenseInput:
+      type: object
+      properties:
+        amount: { type: number, exclusiveMinimum: 0 }
+        category: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+      required: [amount, category, description]
+    BackupRow:
+      type: object
+      additionalProperties: true
+    BackupSnapshot:
+      type: object
+      properties:
+        format: { type: string, enum: [potocopy-qta-backup] }
+        version: { type: string, enum: ["1"] }
+        exportedAt: { type: string, format: date-time }
+        categories:
+          type: array
+          items: { $ref: "#/components/schemas/BackupRow" }
+        products:
+          type: array
+          items: { $ref: "#/components/schemas/BackupRow" }
+        inventoryItems:
+          type: array
+          items: { $ref: "#/components/schemas/BackupRow" }
+        transactions:
+          type: array
+          items: { $ref: "#/components/schemas/BackupRow" }
+        transactionItems:
+          type: array
+          items: { $ref: "#/components/schemas/BackupRow" }
+        payments:
+          type: array
+          items: { $ref: "#/components/schemas/BackupRow" }
+        expenses:
+          type: array
+          items: { $ref: "#/components/schemas/BackupRow" }
+        auditLogs:
+          type: array
+          items: { $ref: "#/components/schemas/BackupRow" }
+      required: [format, version, exportedAt, categories, products, inventoryItems, transactions, transactionItems, payments, expenses, auditLogs]
+    BackupImportResult:
+      type: object
+      properties:
+        restoredAt: { type: string, format: date-time }
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+      required: [restoredAt, counts]
     DashboardSummary:
       type: object
       properties:

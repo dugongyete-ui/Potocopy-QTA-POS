@@ -1,0 +1,1 @@
+- [Backup and restore](backup-restore.md) — PostgreSQL stays primary; JSON is a validated, confirmation-gated replacement snapshot.

@@ -123,6 +123,61 @@ export interface InventoryItem {
   status: InventoryItemStatus;
 }
 
+export interface Expense {
+  id: number;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  category: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface ExpenseInput {
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  /** @minLength 1 */
+  category: string;
+  /** @minLength 1 */
+  description: string;
+}
+
+export interface BackupRow { [key: string]: unknown }
+
+export type BackupSnapshotFormat = typeof BackupSnapshotFormat[keyof typeof BackupSnapshotFormat];
+
+
+export const BackupSnapshotFormat = {
+  'potocopy-qta-backup': 'potocopy-qta-backup',
+} as const;
+
+export type BackupSnapshotVersion = typeof BackupSnapshotVersion[keyof typeof BackupSnapshotVersion];
+
+
+export const BackupSnapshotVersion = {
+  NUMBER_1: '1',
+} as const;
+
+export interface BackupSnapshot {
+  format: BackupSnapshotFormat;
+  version: BackupSnapshotVersion;
+  exportedAt: string;
+  categories: BackupRow[];
+  products: BackupRow[];
+  inventoryItems: BackupRow[];
+  transactions: BackupRow[];
+  transactionItems: BackupRow[];
+  payments: BackupRow[];
+  expenses: BackupRow[];
+  auditLogs: BackupRow[];
+}
+
+export type BackupImportResultCounts = {[key: string]: number};
+
+export interface BackupImportResult {
+  restoredAt: string;
+  counts: BackupImportResultCounts;
+}
+
 export type PaymentBreakdownMethod = typeof PaymentBreakdownMethod[keyof typeof PaymentBreakdownMethod];
 
 

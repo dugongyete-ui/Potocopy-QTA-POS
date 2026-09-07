@@ -7,10 +7,18 @@
  */
 
 export * from './activity';
+export * from './backupImportResult';
+export * from './backupImportResultCounts';
+export * from './backupRow';
+export * from './backupSnapshot';
+export * from './backupSnapshotFormat';
+export * from './backupSnapshotVersion';
 export * from './cancelTransactionInput';
 export * from './categorySales';
 export * from './dashboardSummary';
 export * from './error';
+export * from './expense';
+export * from './expenseInput';
 export * from './getActivityParams';
 export * from './healthStatus';
 export * from './hourlyRevenue';
