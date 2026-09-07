@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Potocopy QTA"
+description = "A professional full-stack POS for photocopy, printing, finishing, and stationery shops, with a fast cashier flow, owner visibility, inventory tracking, reports, and audit trails."
+version = "1.0.0"
+id = "artifacts/potocopy-qta"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21211
+
+[services.development]
+run = "pnpm --filter @workspace/potocopy-qta run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/potocopy-qta", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/potocopy-qta/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21211"
+BASE_PATH = "/"
