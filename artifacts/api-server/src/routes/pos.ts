@@ -115,12 +115,52 @@ const purchasedItems = [
   "Loose Leaf B5 50 Boss",
 ] as const;
 
-const purchasedCategory = (name: string) =>
-  /HVS|Laminating|Tinta|Lakban|Solasi/i.test(name) ? "Bahan Toko" : "ATK";
+const internalItemNames = new Set([
+  "HVS A3 75 PPLITE",
+  "Laminating F4 Amanda",
+  "HVS A4 75 Ultima",
+  "HVS/F4 75 Ultima",
+  "Lakban 1,5\" Wees TBL",
+  "Lakban 2\" DSP TPSG72",
+  "Solasi PVC Vulcan Rol",
+  "Solasi KS Beninu 8640",
+  "Solasi Lux 10 Yard",
+  "Tinta Blueprini BP003 Black",
+  "Tinta Blueprini BP003 Cyan",
+  "Tinta Blueprini BP003 Magenta",
+  "Tinta Blueprini BP003 Yellow",
+]);
+
+const purchasedSkuByName: Map<string, string> = new Map(
+  purchasedItems.map((name, index) => [
+    name,
+    `BELI-${String(index + 1).padStart(3, "0")}`,
+  ]),
+);
+const internalProductSkus = [...internalItemNames]
+  .map((name) => purchasedSkuByName.get(name))
+  .filter((sku): sku is string => Boolean(sku));
+
+const internalInventoryItems = [
+  { name: "HVS A3 75 PPLITE", sku: "BAHAN-001", category: "Bahan Internal", unit: "rim", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "Laminating F4 Amanda", sku: "BAHAN-002", category: "Bahan Internal", unit: "pack", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "HVS A4 75 Ultima", sku: "BAHAN-003", category: "Bahan Internal", unit: "rim", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "HVS/F4 75 Ultima", sku: "BAHAN-004", category: "Bahan Internal", unit: "rim", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "Lakban 1,5\" Wees TBL", sku: "BAHAN-005", category: "Bahan Internal", unit: "roll", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "Lakban 2\" DSP TPSG72", sku: "BAHAN-006", category: "Bahan Internal", unit: "roll", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "Solasi PVC Vulcan Rol", sku: "BAHAN-007", category: "Bahan Internal", unit: "roll", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "Solasi KS Beninu 8640", sku: "BAHAN-008", category: "Bahan Internal", unit: "roll", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "Solasi Lux 10 Yard", sku: "BAHAN-009", category: "Bahan Internal", unit: "roll", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "Tinta Blueprini BP003 Black", sku: "BAHAN-010", category: "Bahan Internal", unit: "botol", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "Tinta Blueprini BP003 Cyan", sku: "BAHAN-011", category: "Bahan Internal", unit: "botol", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "Tinta Blueprini BP003 Magenta", sku: "BAHAN-012", category: "Bahan Internal", unit: "botol", currentStock: "0", minimumStock: "1", status: "OUT" },
+  { name: "Tinta Blueprini BP003 Yellow", sku: "BAHAN-013", category: "Bahan Internal", unit: "botol", currentStock: "0", minimumStock: "1", status: "OUT" },
+];
 
 // Retail benchmark refreshed September 2026 from Indonesian stationery,
 // printing, and marketplace listings. Values are selling prices per catalog
-// unit (a pack/ream stays one unit when the item is sold that way).
+// unit. Internal supplies are tracked in Inventory and are not sold through
+// the customer catalog.
 const catalogPrices: Record<string, string> = {
   "FC-A4": "500",
   "FC-F4": "750",
@@ -130,8 +170,6 @@ const catalogPrices: Record<string, string> = {
   "JLD-SPR": "8000",
   "ATK-PEN": "3500",
   "ATK-MAP": "2500",
-  "BELI-001": "85000",
-  "BELI-002": "7000",
   "BELI-003": "3000",
   "BELI-004": "3000",
   "BELI-005": "2500",
@@ -166,22 +204,13 @@ const catalogPrices: Record<string, string> = {
   "BELI-034": "6000",
   "BELI-035": "5000",
   "BELI-036": "5000",
-  "BELI-037": "13500",
-  "BELI-038": "12000",
+  "BELI-037": "150",
+  "BELI-038": "150",
   "BELI-039": "1500",
   "BELI-040": "1500",
   "BELI-041": "2500",
   "BELI-042": "4000",
   "BELI-043": "3500",
-  "BELI-044": "8000",
-  "BELI-045": "10000",
-  "BELI-046": "7500",
-  "BELI-047": "7500",
-  "BELI-048": "6500",
-  "BELI-049": "25000",
-  "BELI-050": "25000",
-  "BELI-051": "25000",
-  "BELI-052": "25000",
   "BELI-053": "3000",
   "BELI-054": "5000",
   "BELI-055": "5000",
@@ -190,8 +219,6 @@ const catalogPrices: Record<string, string> = {
   "BELI-058": "8000",
   "BELI-059": "5000",
   "BELI-060": "3500",
-  "BELI-061": "60000",
-  "BELI-062": "70000",
   "BELI-063": "28500",
   "BELI-064": "12000",
   "BELI-065": "8000",
@@ -200,64 +227,62 @@ const catalogPrices: Record<string, string> = {
   "BELI-068": "10000",
   "BELI-069": "8000",
   "BELI-070": "8000",
-  "BELI-071": "9000",
-  "BELI-072": "9000",
-  "BELI-073": "9500",
-  "BELI-074": "10000",
-  "BELI-075": "11000",
-  "BELI-076": "12000",
-  "BELI-077": "7000",
+  "BELI-071": "500",
+  "BELI-072": "700",
+  "BELI-073": "1000",
+  "BELI-074": "1200",
+  "BELI-075": "1500",
+  "BELI-076": "2000",
+  "BELI-077": "4000",
   "BELI-078": "12000",
   "BELI-079": "5000",
   "BELI-080": "6000",
   "BELI-081": "7500",
   "BELI-082": "6000",
   "BELI-083": "10000",
-  "BELI-084": "12000",
-  "BELI-085": "7000",
+  "BELI-084": "200",
+  "BELI-085": "150",
 };
 
 const catalogUnits: Record<string, string> = {
-  "BELI-001": "rim",
-  "BELI-002": "pack",
-  "BELI-037": "pack",
-  "BELI-038": "pack",
-  "BELI-041": "pack",
-  "BELI-042": "roll",
-  "BELI-043": "roll",
-  "BELI-044": "roll",
-  "BELI-045": "roll",
-  "BELI-046": "roll",
-  "BELI-047": "roll",
-  "BELI-048": "roll",
-  "BELI-049": "botol",
-  "BELI-050": "botol",
-  "BELI-051": "botol",
-  "BELI-052": "botol",
-  "BELI-057": "buku",
-  "BELI-058": "buku",
-  "BELI-059": "buku",
-  "BELI-061": "rim",
-  "BELI-062": "rim",
-  "BELI-065": "box",
-  "BELI-066": "box",
-  "BELI-067": "pad",
-  "BELI-071": "box",
-  "BELI-072": "box",
-  "BELI-073": "box",
-  "BELI-074": "box",
-  "BELI-075": "box",
-  "BELI-076": "box",
-  "BELI-077": "box",
-  "BELI-078": "roll",
-  "BELI-084": "pack",
-  "BELI-085": "pack",
+  "FC-A4": "lembar",
+  "FC-F4": "lembar",
+  "PR-A4-BW": "lembar",
+  "PR-A4-COLOR": "lembar",
+  "LAM-A4": "lembar",
+  "JLD-SPR": "pcs",
+  "ATK-PEN": "pcs",
+  "ATK-MAP": "pcs",
+  "BELI-037": "pcs",
+  "BELI-038": "pcs",
+  "BELI-071": "pcs",
+  "BELI-072": "pcs",
+  "BELI-073": "pcs",
+  "BELI-074": "pcs",
+  "BELI-075": "pcs",
+  "BELI-076": "pcs",
+  "BELI-077": "pcs",
+  "BELI-084": "lembar",
+  "BELI-085": "lembar",
 };
 
 async function applyCatalogPrices() {
   await Promise.all(
     Object.entries(catalogPrices).map(([sku, price]) =>
-      db.update(products).set({ price, unit: catalogUnits[sku] ?? "pcs" }).where(eq(products.sku, sku)),
+      db.update(products)
+        .set({
+          price,
+          ...(catalogUnits[sku] ? { unit: catalogUnits[sku] } : {}),
+        })
+        .where(eq(products.sku, sku)),
+    ),
+  );
+}
+
+async function archiveInternalProducts() {
+  await Promise.all(
+    internalProductSkus.map((sku) =>
+      db.update(products).set({ active: false }).where(eq(products.sku, sku)),
     ),
   );
 }
@@ -277,7 +302,6 @@ async function ensureSeeded() {
     { name: "Print" },
     { name: "Finishing" },
     { name: "ATK" },
-    { name: "Bahan Toko" },
   ]).onConflictDoNothing();
   const existing = await db.select({ id: products.id }).from(products).limit(1);
   if (existing.length === 0) {
@@ -303,16 +327,18 @@ async function ensureSeeded() {
   }
   const categoryRows = await db.select().from(categories);
   const categoryId = Object.fromEntries(categoryRows.map((row) => [row.name, row.id]));
-  await db.insert(products).values(purchasedItems.map((name, index) => ({
+  await db.insert(products).values(purchasedItems.filter((name) => !internalItemNames.has(name)).map((name) => ({
     name,
-    sku: `BELI-${String(index + 1).padStart(3, "0")}`,
-    categoryId: categoryId[purchasedCategory(name)],
+    sku: purchasedSkuByName.get(name)!,
+    categoryId: categoryId.ATK,
     kind: "PRODUCT",
     price: "0",
     unit: "pcs",
     stockTracking: true,
     active: true,
   }))).onConflictDoNothing({ target: products.sku });
+  await db.insert(inventoryItems).values(internalInventoryItems).onConflictDoNothing({ target: inventoryItems.sku });
+  await archiveInternalProducts();
   await applyCatalogPrices();
   seeded = true;
 }
