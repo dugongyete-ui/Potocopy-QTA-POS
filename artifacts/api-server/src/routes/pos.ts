@@ -27,6 +27,96 @@ let seeded = false;
 
 const money = (value: unknown) => Number(value ?? 0);
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
+const purchasedItems = [
+  "HVS A3 75 PPLITE",
+  "Laminating F4 Amanda",
+  "F100 Vision",
+  "Q100 Vision 100",
+  "Forte 38",
+  "Reyko 38",
+  "Boxy One Heart 38/810",
+  "Tip x Rol Grillee 124",
+  "Tip x Aligator",
+  "Tip x Joyko S225",
+  "BP Lilinku",
+  "BP Evercoss EV1 Trans HTM 816",
+  "BP Gel EV 800 Biru",
+  "BP Gel EV 800 HTM",
+  "BP Marna EV 691",
+  "BP Gel EV 811 HTM",
+  "BP Kedblue",
+  "PS 2B EV 205",
+  "PS 2B Squeezy",
+  "PS 2B M60",
+  "PS 2B Office Animal",
+  "Stip/Staple Grebel 40 HTM 840",
+  "Serutan DMS 825",
+  "Serutan Toples Cat/Pan 700",
+  "Serutan Toples 6663 Spuler",
+  "Serutan Toples 6663 Hippy",
+  "Serutan Toples 6661 BDA1",
+  "Stabilo M&G",
+  "Stabilo F/Castel Blue",
+  "Stabilo F/Castel Green",
+  "Stabilo F/Castel Lilac",
+  "Stabilo F/Castel Pink",
+  "Stabilo F/Castel Red",
+  "Stabilo F/Castel Yellow",
+  "Cutter B Trans Warna",
+  "GI/Gl Orlee 0402",
+  "Amp Merpati 104 Polos",
+  "Amp Merpati 90 Polos 860",
+  "Map Biasa Biru",
+  "Map Biasa Merah",
+  "Amp 310 AM Tali Kikyoto",
+  "D/Tape 1 Wees Tipis",
+  "D/Tape 1/2 Wees Tipis",
+  "Lakban 1,5\" Wees TBL",
+  "Lakban 2\" DSP TPSG72",
+  "Solasi PVC Vulcan Rol",
+  "Solasi KS Beninu 8640",
+  "Solasi Lux 10 Yard",
+  "Tinta Blueprini BP003 Black",
+  "Tinta Blueprini BP003 Cyan",
+  "Tinta Blueprini BP003 Magenta",
+  "Tinta Blueprini BP003 Yellow",
+  "Jidar 30 cm Besco M300",
+  "Spidol Joyko PM 17",
+  "Spidol Joyko WM 65",
+  "Spidol 12W Agra",
+  "Kwitansi Vision K 8560",
+  "Kwitansi Vision TG",
+  "Nota K1 Forte0320",
+  "Glue Stick EV K",
+  "HVS A4 75 Ultima",
+  "HVS/F4 75 Ultima",
+  "Stapler Joyko HD 50 CL",
+  "Stapler Combo HD10KEO",
+  "Staples SUI B No. 24 6500",
+  "Staples SDI 10 K 81000",
+  "Sticky Note Fourie 654 Kuning",
+  "Memo Stick MMS 2 JK",
+  "Index Forte032",
+  "Jidar Besi 30 cm Esco",
+  "B/Clip Combo 105",
+  "B/Clip Combo 107",
+  "B/Clip Combo 111",
+  "B/Clip Combo 155",
+  "B/Clip Combo 200",
+  "B/Clip Combo 260",
+  "Clip Combo No. 3",
+  "SMP Mika Rol 34 cm",
+  "Kado GK",
+  "Kado LS",
+  "Kado Kiki G2RIM",
+  "Kado Sidu",
+  "Kado Piala",
+  "Loose Leaf B5 100 Boss 650",
+  "Loose Leaf B5 50 Boss",
+] as const;
+
+const purchasedCategory = (name: string) =>
+  /HVS|Laminating|Tinta|Lakban|Solasi/i.test(name) ? "Bahan Toko" : "ATK";
 
 const requireAuth: RequestHandler = (req, res, next) => {
   const auth = getAuth(req);
@@ -38,17 +128,16 @@ const requireAuth: RequestHandler = (req, res, next) => {
 
 async function ensureSeeded() {
   if (seeded) return;
+  await db.insert(categories).values([
+    { name: "Fotokopi" },
+    { name: "Print" },
+    { name: "Finishing" },
+    { name: "ATK" },
+    { name: "Bahan Toko" },
+  ]).onConflictDoNothing();
   const existing = await db.select({ id: products.id }).from(products).limit(1);
   if (existing.length === 0) {
-    const categoryRows = await db
-      .insert(categories)
-      .values([
-        { name: "Fotokopi" },
-        { name: "Print" },
-        { name: "Finishing" },
-        { name: "ATK" },
-      ])
-      .returning();
+    const categoryRows = await db.select().from(categories);
     const categoryId = Object.fromEntries(categoryRows.map((row) => [row.name, row.id]));
     await db.insert(products).values([
       { name: "Fotokopi A4", sku: "FC-A4", categoryId: categoryId.Fotokopi, kind: "SERVICE", price: "500", unit: "lembar", stockTracking: true },
@@ -68,6 +157,18 @@ async function ensureSeeded() {
       { name: "Tinta Hitam", sku: "INK-BLK", category: "Bahan", unit: "botol", currentStock: "4", minimumStock: "2", status: "HEALTHY" },
     ]);
   }
+  const categoryRows = await db.select().from(categories);
+  const categoryId = Object.fromEntries(categoryRows.map((row) => [row.name, row.id]));
+  await db.insert(products).values(purchasedItems.map((name, index) => ({
+    name,
+    sku: `BELI-${String(index + 1).padStart(3, "0")}`,
+    categoryId: categoryId[purchasedCategory(name)],
+    kind: "PRODUCT",
+    price: "0",
+    unit: "pcs",
+    stockTracking: true,
+    active: true,
+  }))).onConflictDoNothing({ target: products.sku });
   seeded = true;
 }
 
