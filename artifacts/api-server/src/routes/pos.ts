@@ -253,6 +253,7 @@ const catalogUnits: Record<string, string> = {
   "JLD-SPR": "pcs",
   "ATK-PEN": "pcs",
   "ATK-MAP": "pcs",
+  "BELI-041": "pcs",
   "BELI-037": "pcs",
   "BELI-038": "pcs",
   "BELI-071": "pcs",
