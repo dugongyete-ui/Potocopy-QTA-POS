@@ -72,6 +72,9 @@ function SignInScreen() {
   const { isLoaded, signIn, setActive } = useSignIn();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [verificationPhase, setVerificationPhase] = useState<'credentials' | 'first-factor' | 'second-factor'>('credentials');
+  const [verificationLabel, setVerificationLabel] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
@@ -84,19 +87,87 @@ function SignInScreen() {
     setError('');
     try {
       const result = await signIn.create({
+        strategy: 'password',
         identifier: identifier.trim(),
         password,
       });
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
+      } else if (result.status === 'needs_second_factor') {
+        const emailFactor = result.supportedSecondFactors?.find(factor => factor.strategy === 'email_code');
+        const totpFactor = result.supportedSecondFactors?.find(factor => factor.strategy === 'totp');
+        const backupFactor = result.supportedSecondFactors?.find(factor => factor.strategy === 'backup_code');
+        if (emailFactor?.strategy === 'email_code') {
+          await signIn.prepareSecondFactor({
+            strategy: 'email_code',
+            emailAddressId: emailFactor.emailAddressId,
+          });
+          setVerificationPhase('second-factor');
+          setVerificationLabel(emailFactor.safeIdentifier);
+        } else if (totpFactor?.strategy === 'totp') {
+          setVerificationPhase('second-factor');
+          setVerificationLabel('your authenticator app');
+        } else if (backupFactor?.strategy === 'backup_code') {
+          setVerificationPhase('second-factor');
+          setVerificationLabel('a backup code');
+        } else {
+          setError('This account requires a verification method that mobile sign-in does not support yet.');
+        }
+      } else if (result.status === 'needs_first_factor') {
+        const emailFactor = result.supportedFirstFactors?.find(factor => factor.strategy === 'email_code');
+        if (emailFactor?.strategy === 'email_code') {
+          await signIn.prepareFirstFactor({
+            strategy: 'email_code',
+            emailAddressId: emailFactor.emailAddressId,
+          });
+          setVerificationPhase('first-factor');
+          setVerificationLabel(emailFactor.safeIdentifier);
+        } else {
+          setError('Clerk needs a first verification step that mobile sign-in does not support yet.');
+        }
       } else {
-        setError('This account needs another verification step. Finish sign-in from the web app first.');
+        setError('Sign-in needs another step that mobile sign-in does not support yet.');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed. Check your details and try again.');
     } finally {
       setPending(false);
     }
+  };
+
+  const submitCode = async () => {
+    if (!isLoaded || !code.trim()) {
+      setError('Enter the verification code from your email or authenticator.');
+      return;
+    }
+    setPending(true);
+    setError('');
+    try {
+      const result = verificationPhase === 'second-factor'
+        ? await signIn.attemptSecondFactor(
+            verificationLabel === 'your authenticator app'
+              ? { strategy: 'totp', code: code.trim() }
+              : verificationLabel === 'a backup code'
+                ? { strategy: 'backup_code', code: code.trim() }
+                : { strategy: 'email_code', code: code.trim() },
+          )
+        : await signIn.attemptFirstFactor({ strategy: 'email_code', code: code.trim() });
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+      } else {
+        setError('The code was accepted, but sign-in needs another step. Use the web app for this account or try again.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That code is invalid or expired.');
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const useDifferentAccount = () => {
+    setVerificationPhase('credentials');
+    setCode('');
+    setError('');
   };
 
   return (
@@ -107,27 +178,54 @@ function SignInScreen() {
         <Text style={[styles.authSubtitle, { color: colors.mutedForeground }]}>Sign in to access sales, catalog, inventory, and backups.</Text>
       </View>
       <View style={styles.authForm}>
-        <TextInput
-          testID="input-auth-email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={identifier}
-          onChangeText={setIdentifier}
-          placeholder="Email address"
-          placeholderTextColor={colors.mutedForeground}
-          style={[styles.authInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-        />
-        <TextInput
-          testID="input-auth-password"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Password"
-          placeholderTextColor={colors.mutedForeground}
-          style={[styles.authInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-        />
+        {verificationPhase === 'credentials' ? (
+          <>
+            <TextInput
+              testID="input-auth-email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={identifier}
+              onChangeText={setIdentifier}
+              placeholder="Email address"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.authInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+            />
+            <TextInput
+              testID="input-auth-password"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.authInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={[styles.verificationTitle, { color: colors.foreground }]}>Check {verificationLabel}</Text>
+            <Text style={[styles.authSubtitle, { color: colors.mutedForeground }]}>Enter the code to finish signing in. It may take a moment to arrive.</Text>
+            <TextInput
+              testID="input-auth-verification-code"
+              autoCapitalize="none"
+              keyboardType="number-pad"
+              value={code}
+              onChangeText={setCode}
+              placeholder="Verification code"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.authInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+            />
+          </>
+        )}
         {error ? <Text style={[styles.authError, { color: colors.destructive }]}>{error}</Text> : null}
-        <PrimaryButton label={pending ? 'Signing in…' : 'Sign in'} icon="log-in" disabled={pending} onPress={() => void submit()} />
+        <PrimaryButton
+          label={pending ? 'Checking…' : verificationPhase === 'credentials' ? 'Sign in' : 'Verify and continue'}
+          icon={verificationPhase === 'credentials' ? 'log-in' : 'check-circle'}
+          disabled={pending}
+          onPress={() => void (verificationPhase === 'credentials' ? submit() : submitCode())}
+        />
+        {verificationPhase !== 'credentials' ? (
+          <PrimaryButton label="Use a different account" icon="arrow-left" secondary onPress={useDifferentAccount} />
+        ) : null}
       </View>
     </View>
   );
@@ -192,6 +290,7 @@ const styles = StyleSheet.create({
   authSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 20 },
   authForm: { gap: 10 },
   authInput: { minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, fontFamily: 'Inter_400Regular', fontSize: 14 },
+  verificationTitle: { fontFamily: 'Inter_700Bold', fontSize: 16 },
   authError: { fontFamily: 'Inter_500Medium', fontSize: 12, lineHeight: 17 },
   loadingText: { fontFamily: 'Inter_500Medium', fontSize: 13 },
   configError: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, backgroundColor: '#f8f4ee' },
