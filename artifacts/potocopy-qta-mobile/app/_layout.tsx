@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -24,6 +24,12 @@ import * as SplashScreen from 'expo-splash-screen';
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+const INTER_FONTS = {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+};
 
 function RootLayoutNav() {
   return (
@@ -232,12 +238,9 @@ function SignInScreen() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-  });
+  // Expo web can time out while FontFaceObserver waits for bundled fonts.
+  // Native builds still load Inter; the browser safely uses its system fallback.
+  const [fontsLoaded, fontError] = useFonts(Platform.OS === 'web' ? {} : INTER_FONTS);
 
   useEffect(() => {
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
