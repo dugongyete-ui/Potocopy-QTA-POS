@@ -1,1 +1,2 @@
 - [Backup and restore](backup-restore.md) — PostgreSQL stays primary; JSON is a validated, confirmation-gated replacement snapshot.
+- [Mobile API authentication](mobile-api-auth.md) — Expo calls the shared API with a Clerk bearer-token bridge, not web session cookies.

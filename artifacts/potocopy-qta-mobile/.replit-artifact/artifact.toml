@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/potocopy-qta-mobile/"
+title = "Potocopy QTA Mobile"
+description = "A mobile companion for Potocopy QTA shop operations, including the cashier, catalog, inventory, expenses, reports, and JSON backup restore workflows."
+version = "1.0.0"
+id = "artifacts/potocopy-qta-mobile"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/potocopy-qta-mobile/" ]
+localPort = 21307
+
+[services.development]
+run = "pnpm --filter @workspace/potocopy-qta-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/potocopy-qta-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/potocopy-qta-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "21307"
+BASE_PATH = "/potocopy-qta-mobile/"
