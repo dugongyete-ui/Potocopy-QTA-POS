@@ -83,12 +83,12 @@ export default function CashierScreen() {
 
   return (
     <Screen>
-      <BrandHeader title="New sale" subtitle="Tap an item to build the customer’s basket." />
+      <BrandHeader title="New sale" subtitle="All active Catalog items are ready to sell. Store supplies stay in Inventory." />
       <SearchInput value={search} onChangeText={setSearch} placeholder="Search product or SKU" />
       <SectionTitle title="Catalog" action={<Text style={[styles.count, { color: colors.mutedForeground }]}>{filtered.length} items</Text>} />
       {productsQuery.isLoading ? <View style={styles.loading}><Text style={[styles.helper, { color: colors.mutedForeground }]}>Loading catalog…</Text></View> : productsQuery.isError ? <Card><EmptyState icon="wifi-off" title="Catalog unavailable" description="Check the connection and try again." /></Card> : filtered.length ? (
         <View style={styles.productGrid}>
-          {filtered.slice(0, 40).map(product => {
+          {filtered.map(product => {
             const quantity = cart[product.id] ?? 0;
             return (
               <Pressable key={product.id} testID={`button-product-${product.id}`} onPress={() => updateCart(product, 1)} style={({ pressed }) => [styles.product, { backgroundColor: colors.card, borderColor: quantity ? colors.primary : colors.border, opacity: pressed ? 0.78 : 1 }]}>
