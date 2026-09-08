@@ -192,6 +192,76 @@ const internalProductSkus = [...internalItemNames]
   .map((name) => purchasedSkuByName.get(name))
   .filter((sku): sku is string => Boolean(sku));
 
+// Keep the original product/brand name, then add the common name after a slash
+// so beginners can recognize the item at the counter.
+const catalogDisplayNames: Record<string, string> = {
+  "BELI-008": "Tip x Rol Grillee 124 / Correction Tape",
+  "BELI-009": "Tip x Aligator / Correction Tape",
+  "BELI-010": "Tip x Joyko S225 / Correction Tape",
+  "BELI-011": "BP Lilinku / Ballpoint Pen",
+  "BELI-012": "BP Evercoss EV1 Trans HTM 816 / Ballpoint Pen",
+  "BELI-013": "BP Gel EV 800 Biru / Gel Pen",
+  "BELI-014": "BP Gel EV 800 HTM / Gel Pen",
+  "BELI-015": "BP Marna EV 691 / Ballpoint Pen",
+  "BELI-016": "BP Gel EV 811 HTM / Gel Pen",
+  "BELI-017": "BP Kedblue / Ballpoint Pen",
+  "BELI-018": "PS 2B EV 205 / 2B Pencil",
+  "BELI-019": "PS 2B Squeezy / 2B Pencil",
+  "BELI-020": "PS 2B M60 / 2B Pencil",
+  "BELI-021": "PS 2B Office Animal / 2B Pencil",
+  "BELI-023": "Serutan DMS 825 / Pencil Sharpener",
+  "BELI-024": "Serutan Toples Cat/Pan 700 / Pencil Sharpener",
+  "BELI-025": "Serutan Toples 6663 Spuler / Pencil Sharpener",
+  "BELI-026": "Serutan Toples 6663 Hippy / Pencil Sharpener",
+  "BELI-027": "Stabilo M&G / Highlighter",
+  "BELI-028": "Stabilo F/Castel Blue / Highlighter",
+  "BELI-029": "Stabilo F/Castel Green / Highlighter",
+  "BELI-030": "Stabilo F/Castel Lilac / Highlighter",
+  "BELI-031": "Stabilo F/Castel Pink / Highlighter",
+  "BELI-032": "Stabilo F/Castel Red / Highlighter",
+  "BELI-033": "Stabilo F/Castel Yellow / Highlighter",
+  "BELI-034": "Cutter B Trans Warna / Cutter",
+  "BELI-035": "GI/Gl Orlee 0402 / Glue",
+  "BELI-036": "Amp Merpati 104 Polos / Envelope",
+  "BELI-037": "Amp Merpati 90 Polos 860 / Envelope",
+  "BELI-038": "Map Biasa Biru / Folder",
+  "BELI-039": "Map Biasa Merah / Folder",
+  "BELI-040": "Amp 310 AM Tali Kikyoto / String Envelope",
+  "BELI-041": "D/Tape 1 Wees Tipis / Double Tape",
+  "BELI-042": "D/Tape 1/2 Wees Tipis / Double Tape",
+  "BELI-052": "Jidar 30 cm Besco M300 / Ruler",
+  "BELI-053": "Spidol Joyko PM 17 / Marker",
+  "BELI-054": "Spidol Joyko WM 65 / Marker",
+  "BELI-055": "Spidol 12W Agra / Marker",
+  "BELI-056": "Kwitansi Vision K 8560 / Receipt Book",
+  "BELI-057": "Kwitansi Vision TG / Receipt Book",
+  "BELI-058": "Nota K1 Forte0320 / Receipt Book",
+  "BELI-059": "Glue Stick EV K / Glue Stick",
+  "BELI-062": "Stapler Joyko HD 50 CL / Stapler",
+  "BELI-063": "Stapler Combo HD10KEO / Stapler",
+  "BELI-064": "Staples SUI B No. 24 6500 / Staple Refill",
+  "BELI-065": "Staples SDI 10 K 81000 / Staple Refill",
+  "BELI-066": "Sticky Note Fourie 654 Kuning / Sticky Notes",
+  "BELI-067": "Memo Stick MMS 2 JK / Memo Pad",
+  "BELI-068": "Index Forte032 / Index Tabs",
+  "BELI-069": "Jidar Besi 30 cm Esco / Metal Ruler",
+  "BELI-070": "B/Clip Combo 105 / Binder Clip No. 105",
+  "BELI-071": "B/Clip Combo 107 / Binder Clip No. 107",
+  "BELI-072": "B/Clip Combo 111 / Binder Clip No. 111",
+  "BELI-073": "B/Clip Combo 155 / Binder Clip No. 155",
+  "BELI-074": "B/Clip Combo 200 / Binder Clip No. 200",
+  "BELI-075": "B/Clip Combo 260 / Binder Clip No. 260",
+  "BELI-076": "Clip Combo No. 3 / Paper Clip No. 3",
+  "BELI-077": "SMP Mika Rol 34 cm / Plastic Cover Roll",
+  "BELI-078": "Kado GK / Wrapping Paper",
+  "BELI-079": "Kado LS / Wrapping Paper",
+  "BELI-080": "Kado Kiki G2RIM / Wrapping Paper",
+  "BELI-081": "Kado Sidu / Wrapping Paper",
+  "BELI-082": "Kado Piala / Wrapping Paper",
+  "BELI-083": "Loose Leaf B5 100 Boss 650 / Loose Leaf Paper",
+  "BELI-084": "Loose Leaf B5 50 Boss / Loose Leaf Paper",
+};
+
 const internalInventoryItems = [
   { name: "HVS A3 75 PPLITE", sku: "BAHAN-001", category: "Bahan Internal", unit: "rim", currentStock: "0", minimumStock: "1", status: "OUT" },
   { name: "Laminating F4 Amanda", sku: "BAHAN-002", category: "Bahan Internal", unit: "pack", currentStock: "0", minimumStock: "1", status: "OUT" },
@@ -380,7 +450,7 @@ async function ensureSeeded() {
   const categoryRows = await db.select().from(categories);
   const categoryId = Object.fromEntries(categoryRows.map((row) => [row.name, row.id]));
   await db.insert(products).values(purchasedItems.filter((name) => !internalItemNames.has(name)).map((name) => ({
-    name,
+    name: catalogDisplayNames[purchasedSkuByName.get(name)!] ?? name,
     sku: purchasedSkuByName.get(name)!,
     categoryId: categoryId.ATK,
     kind: "PRODUCT",
@@ -391,6 +461,13 @@ async function ensureSeeded() {
   }))).onConflictDoNothing({ target: products.sku });
   await db.insert(inventoryItems).values(internalInventoryItems).onConflictDoNothing({ target: inventoryItems.sku });
   await archiveInternalProducts();
+  await Promise.all(
+    Object.entries(catalogDisplayNames).map(([sku, name]) =>
+      db.update(products)
+        .set({ name })
+        .where(and(eq(products.sku, sku), eq(products.active, true))),
+    ),
+  );
   await applyCatalogPrices();
   seeded = true;
 }
