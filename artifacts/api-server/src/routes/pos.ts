@@ -167,15 +167,6 @@ const purchasedItems = [
 ] as const;
 
 const internalItemNames = new Set([
-  "HVS A3 75 PPLITE",
-  "Laminating F4 Amanda",
-  "HVS A4 75 Ultima",
-  "HVS/F4 75 Ultima",
-  "Lakban 1,5\" Wees TBL",
-  "Lakban 2\" DSP TPSG72",
-  "Solasi PVC Vulcan Rol",
-  "Solasi KS Beninu 8640",
-  "Solasi Lux 10 Yard",
   "Tinta Blueprini BP003 Black",
   "Tinta Blueprini BP003 Cyan",
   "Tinta Blueprini BP003 Magenta",
@@ -195,6 +186,8 @@ const internalProductSkus = [...internalItemNames]
 // Keep the original product/brand name, then add the common name after a slash
 // so beginners can recognize the item at the counter.
 const catalogDisplayNames: Record<string, string> = {
+  "BELI-001": "HVS A3 75 PPLITE / Kertas HVS A3",
+  "BELI-002": "Laminating F4 Amanda / Laminating Pouch F4",
   "BELI-008": "Tip x Rol Grillee 124 / Correction Tape",
   "BELI-009": "Tip x Aligator / Correction Tape",
   "BELI-010": "Tip x Joyko S225 / Correction Tape",
@@ -229,6 +222,11 @@ const catalogDisplayNames: Record<string, string> = {
   "BELI-040": "Amp 310 AM Tali Kikyoto / String Envelope",
   "BELI-041": "D/Tape 1 Wees Tipis / Double Tape",
   "BELI-042": "D/Tape 1/2 Wees Tipis / Double Tape",
+  "BELI-043": "Lakban 1,5\" Wees TBL / Packing Tape",
+  "BELI-044": "Lakban 2\" DSP TPSG72 / Packing Tape",
+  "BELI-045": "Solasi PVC Vulcan Rol / Clear Tape",
+  "BELI-046": "Solasi KS Beninu 8640 / Clear Tape",
+  "BELI-047": "Solasi Lux 10 Yard / Clear Tape",
   "BELI-052": "Jidar 30 cm Besco M300 / Ruler",
   "BELI-053": "Spidol Joyko PM 17 / Marker",
   "BELI-054": "Spidol Joyko WM 65 / Marker",
@@ -237,6 +235,8 @@ const catalogDisplayNames: Record<string, string> = {
   "BELI-057": "Kwitansi Vision TG / Receipt Book",
   "BELI-058": "Nota K1 Forte0320 / Receipt Book",
   "BELI-059": "Glue Stick EV K / Glue Stick",
+  "BELI-060": "HVS A4 75 Ultima / Kertas HVS A4",
+  "BELI-061": "HVS/F4 75 Ultima / Kertas HVS F4",
   "BELI-062": "Stapler Joyko HD 50 CL / Stapler",
   "BELI-063": "Stapler Combo HD10KEO / Stapler",
   "BELI-064": "Staples SUI B No. 24 6500 / Staple Refill",
@@ -263,25 +263,22 @@ const catalogDisplayNames: Record<string, string> = {
 };
 
 const internalInventoryItems = [
-  { name: "HVS A3 75 PPLITE", sku: "BAHAN-001", category: "Bahan Internal", unit: "rim", currentStock: "0", minimumStock: "1", status: "OUT" },
-  { name: "Laminating F4 Amanda", sku: "BAHAN-002", category: "Bahan Internal", unit: "pack", currentStock: "0", minimumStock: "1", status: "OUT" },
-  { name: "HVS A4 75 Ultima", sku: "BAHAN-003", category: "Bahan Internal", unit: "rim", currentStock: "0", minimumStock: "1", status: "OUT" },
-  { name: "HVS/F4 75 Ultima", sku: "BAHAN-004", category: "Bahan Internal", unit: "rim", currentStock: "0", minimumStock: "1", status: "OUT" },
-  { name: "Lakban 1,5\" Wees TBL", sku: "BAHAN-005", category: "Bahan Internal", unit: "roll", currentStock: "0", minimumStock: "1", status: "OUT" },
-  { name: "Lakban 2\" DSP TPSG72", sku: "BAHAN-006", category: "Bahan Internal", unit: "roll", currentStock: "0", minimumStock: "1", status: "OUT" },
-  { name: "Solasi PVC Vulcan Rol", sku: "BAHAN-007", category: "Bahan Internal", unit: "roll", currentStock: "0", minimumStock: "1", status: "OUT" },
-  { name: "Solasi KS Beninu 8640", sku: "BAHAN-008", category: "Bahan Internal", unit: "roll", currentStock: "0", minimumStock: "1", status: "OUT" },
-  { name: "Solasi Lux 10 Yard", sku: "BAHAN-009", category: "Bahan Internal", unit: "roll", currentStock: "0", minimumStock: "1", status: "OUT" },
   { name: "Tinta Blueprini BP003 Black", sku: "BAHAN-010", category: "Bahan Internal", unit: "botol", currentStock: "0", minimumStock: "1", status: "OUT" },
   { name: "Tinta Blueprini BP003 Cyan", sku: "BAHAN-011", category: "Bahan Internal", unit: "botol", currentStock: "0", minimumStock: "1", status: "OUT" },
   { name: "Tinta Blueprini BP003 Magenta", sku: "BAHAN-012", category: "Bahan Internal", unit: "botol", currentStock: "0", minimumStock: "1", status: "OUT" },
   { name: "Tinta Blueprini BP003 Yellow", sku: "BAHAN-013", category: "Bahan Internal", unit: "botol", currentStock: "0", minimumStock: "1", status: "OUT" },
 ];
 
+const sellableBaseProducts = [
+  { name: "HVS A4 / Kertas HVS A4", sku: "HVS-A4", category: "ATK", kind: "PRODUCT", price: "500", unit: "lembar", stockTracking: true, active: true },
+  { name: "HVS F4 / Kertas HVS F4", sku: "HVS-F4", category: "ATK", kind: "PRODUCT", price: "750", unit: "lembar", stockTracking: true, active: true },
+  { name: "Plastik Laminasi A4 / Laminating Pouch A4", sku: "LAM-A4-MAT", category: "Finishing", kind: "PRODUCT", price: "5000", unit: "pcs", stockTracking: true, active: true },
+  { name: "Spiral 10mm / Spiral Binding", sku: "SPR-10", category: "Finishing", kind: "PRODUCT", price: "2500", unit: "pcs", stockTracking: true, active: true },
+] as const;
+
 // Retail benchmark refreshed September 2026 from Indonesian stationery,
 // printing, and marketplace listings. Values are selling prices per catalog
-// unit. Internal supplies are tracked in Inventory and are not sold through
-// the customer catalog.
+// unit. Only machine supplies such as ink remain internal.
 const catalogPrices: Record<string, string> = {
   "FC-A4": "500",
   "FC-F4": "750",
@@ -291,6 +288,12 @@ const catalogPrices: Record<string, string> = {
   "JLD-SPR": "8000",
   "ATK-PEN": "3500",
   "ATK-MAP": "2500",
+  "HVS-A4": "500",
+  "HVS-F4": "750",
+  "LAM-A4-MAT": "5000",
+  "SPR-10": "2500",
+  "BELI-001": "1000",
+  "BELI-002": "7000",
   "BELI-003": "3000",
   "BELI-004": "3000",
   "BELI-005": "2500",
@@ -331,7 +334,13 @@ const catalogPrices: Record<string, string> = {
   "BELI-040": "1500",
   "BELI-041": "2500",
   "BELI-042": "4000",
-  "BELI-043": "3500",
+  "BELI-043": "6500",
+  "BELI-044": "9000",
+  "BELI-045": "4000",
+  "BELI-046": "5000",
+  "BELI-047": "5000",
+  "BELI-060": "500",
+  "BELI-061": "750",
   "BELI-053": "3000",
   "BELI-054": "5000",
   "BELI-055": "5000",
@@ -339,7 +348,6 @@ const catalogPrices: Record<string, string> = {
   "BELI-057": "6000",
   "BELI-058": "8000",
   "BELI-059": "5000",
-  "BELI-060": "3500",
   "BELI-063": "28500",
   "BELI-064": "12000",
   "BELI-065": "8000",
@@ -374,6 +382,19 @@ const catalogUnits: Record<string, string> = {
   "JLD-SPR": "pcs",
   "ATK-PEN": "pcs",
   "ATK-MAP": "pcs",
+  "HVS-A4": "lembar",
+  "HVS-F4": "lembar",
+  "LAM-A4-MAT": "pcs",
+  "SPR-10": "pcs",
+  "BELI-001": "lembar",
+  "BELI-002": "lembar",
+  "BELI-043": "roll",
+  "BELI-044": "roll",
+  "BELI-045": "roll",
+  "BELI-046": "roll",
+  "BELI-047": "roll",
+  "BELI-060": "lembar",
+  "BELI-061": "lembar",
   "BELI-041": "pcs",
   "BELI-037": "pcs",
   "BELI-038": "pcs",
@@ -405,6 +426,41 @@ async function archiveInternalProducts() {
   await Promise.all(
     internalProductSkus.map((sku) =>
       db.update(products).set({ active: false }).where(eq(products.sku, sku)),
+    ),
+  );
+}
+
+const sellablePurchasedSkus = purchasedItems
+  .filter((name) => !internalItemNames.has(name))
+  .map((name) => purchasedSkuByName.get(name)!)
+  .filter(Boolean);
+
+async function activateSellableProducts() {
+  await Promise.all(
+    sellablePurchasedSkus.map((sku) =>
+      db.update(products).set({ active: true }).where(eq(products.sku, sku)),
+    ),
+  );
+}
+
+const sellableInventoryCategories: Record<string, string> = {
+  "BAHAN-001": "Kertas",
+  "BAHAN-002": "Finishing",
+  "BAHAN-003": "Kertas",
+  "BAHAN-004": "Kertas",
+  "BAHAN-005": "Perekat",
+  "BAHAN-006": "Perekat",
+  "BAHAN-007": "Perekat",
+  "BAHAN-008": "Perekat",
+  "BAHAN-009": "Perekat",
+};
+
+async function classifySellableInventory() {
+  await Promise.all(
+    Object.entries(sellableInventoryCategories).map(([sku, category]) =>
+      db.update(inventoryItems)
+        .set({ category })
+        .where(eq(inventoryItems.sku, sku)),
     ),
   );
 }
@@ -459,7 +515,13 @@ async function ensureSeeded() {
     stockTracking: true,
     active: true,
   }))).onConflictDoNothing({ target: products.sku });
+  await db.insert(products).values(sellableBaseProducts.map(({ category, ...product }) => ({
+    ...product,
+    categoryId: categoryId[category],
+  }))).onConflictDoNothing({ target: products.sku });
   await db.insert(inventoryItems).values(internalInventoryItems).onConflictDoNothing({ target: inventoryItems.sku });
+  await classifySellableInventory();
+  await activateSellableProducts();
   await archiveInternalProducts();
   await Promise.all(
     Object.entries(catalogDisplayNames).map(([sku, name]) =>
